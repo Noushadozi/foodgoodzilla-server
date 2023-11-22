@@ -4,6 +4,7 @@ const app = express();
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const port = process.env.PORT || 5000;
 
 app.use(
@@ -33,9 +34,9 @@ async function run() {
     const menuCollection = client.db("foodgoodzilla").collection("menu");
     const reviewCollection = client.db("foodgoodzilla").collection("reviews");
     const cartCollection = client.db("foodgoodzilla").collection("cart");
+    const paymentCollection = client.db("foodgoodzilla").collection("payments");
 
     const verifyToken = (req, res, next) => {
-      console.log("inside verify token", req.headers);
       if (!req.headers.authorization) {
         return res.status(401).send({ message: "unauthorized access" });
       }
@@ -71,7 +72,6 @@ async function run() {
 
     //! users related api
     app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
-      console.log(req.headers);
       const result = await userCollection.find().toArray();
       res.send(result);
     });
@@ -196,6 +196,45 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await cartCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    //! payment intent
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
+
+    app.post("/payments", async (req, res) => {
+      const payment = req.body;
+      const paymentResult = await paymentCollection.insertOne(payment);
+
+      // delete from cart
+      console.log(payment, "infooooooooooooooooooooooopay");
+      const query = {
+        _id: {
+          $in: payment.cartIds.map((id) => new ObjectId(id)),
+        },
+      };
+      const deleteResult = await cartCollection.deleteMany(query);
+      res.send({ paymentResult, deleteResult });
+    });
+
+    app.get("/payments/:email", verifyToken, async (req, res) => {
+      const query = { email: req.params.email };
+      if (req.params.email !== req.decoded.email) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      const result = await paymentCollection.find(query).toArray();
       res.send(result);
     });
 
