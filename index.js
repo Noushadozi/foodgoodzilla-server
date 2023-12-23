@@ -17,7 +17,6 @@ app.use(express.json());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.x4h5cla.mongodb.net/?retryWrites=true&w=majority`;
 
-// Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -28,8 +27,6 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    // Connect the client to the server	(optional starting in v4.7)
-    // await client.connect();
     const userCollection = client.db("foodgoodzilla").collection("user");
     const menuCollection = client.db("foodgoodzilla").collection("menu");
     const reviewCollection = client.db("foodgoodzilla").collection("reviews");
@@ -83,7 +80,6 @@ async function run() {
       }
       const query = { email: email };
       const user = await userCollection.findOne(query);
-      // const isadmin =
       let admin = false;
       if (user) {
         admin = user?.role === "admin";
@@ -165,7 +161,6 @@ async function run() {
     app.delete("/menu/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: id };
-      // const query = { _id: new ObjectId(id) };
       const result = await menuCollection.deleteOne(query);
       res.send(result);
     });
@@ -219,7 +214,6 @@ async function run() {
       const paymentResult = await paymentCollection.insertOne(payment);
 
       // delete from cart
-      console.log(payment, "infooooooooooooooooooooooopay");
       const query = {
         _id: {
           $in: payment.cartIds.map((id) => new ObjectId(id)),
@@ -242,11 +236,6 @@ async function run() {
       const users = await userCollection.estimatedDocumentCount();
       const menuItems = await menuCollection.estimatedDocumentCount();
       const orders = await paymentCollection.estimatedDocumentCount();
-      // const payments = await paymentCollection.find().toArray();
-      // const revenue = payments.reduce(
-      //   (total, payment) => total + payment.price,
-      //   0
-      // );
 
       const result = await paymentCollection
         .aggregate([
@@ -307,15 +296,7 @@ async function run() {
         .toArray();
       res.send(result);
     });
-
-    // // Send a ping to confirm a successful connection
-    // await client.db("admin").command({ ping: 1 });
-    // console.log(
-    //   "Pinged your deployment. You successfully connected to MongoDB!"
-    // );
   } finally {
-    // Ensures that the client will close when you finish/error;
-    // await client.close();
   }
 }
 run().catch(console.dir);
